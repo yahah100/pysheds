@@ -599,7 +599,7 @@ class sGrid():
         nodata_cells = self._get_nodata_cells(dem)
         if routing.lower() == 'd8':
             if nodata_out is None:
-                nodata_out = 0
+                nodata_out = np.int64(0)
             fdir = self._d8_flowdir(dem=dem, nodata_cells=nodata_cells,
                                     nodata_out=nodata_out, flats=flats,
                                     pits=pits, dirmap=dirmap)
@@ -621,7 +621,7 @@ class sGrid():
         return fdir
 
 
-    def _d8_flowdir(self, dem, nodata_cells, nodata_out=0, flats=-1, pits=-2,
+    def _d8_flowdir(self, dem, nodata_cells, nodata_out=np.int64(0), flats=-1, pits=-2,
                     dirmap=(64, 128, 1, 2, 4, 8, 16, 32)):
         # Make sure nothing flows to the nodata cells
         dem[nodata_cells] = dem.max() + 1
@@ -660,7 +660,7 @@ class sGrid():
                                     mask=new_mask)
 
     def catchment(self, x, y, fdir, pour_value=None, dirmap=(64, 128, 1, 2, 4, 8, 16, 32),
-                  nodata_out=False, xytype='coordinate', routing='d8', snap='corner',
+                  nodata_out=np.bool(False), xytype='coordinate', routing='d8', snap='corner',
                   algorithm='iterative', **kwargs):
         """
         Delineates a watershed from a given pour point (x, y).
@@ -819,7 +819,7 @@ class sGrid():
         return catch
 
     def accumulation(self, fdir, weights=None, dirmap=(64, 128, 1, 2, 4, 8, 16, 32),
-                     nodata_out=0., efficiency=None, routing='d8', cycle_size=1,
+                     nodata_out=np.float64(0.), efficiency=None, routing='d8', cycle_size=1,
                      algorithm='iterative', **kwargs):
         """
         Generates a flow accumulation raster. If no weights are provided, the value of each cell
@@ -898,7 +898,7 @@ class sGrid():
         return acc
 
     def _d8_accumulation(self, fdir, weights=None, dirmap=(64, 128, 1, 2, 4, 8, 16, 32),
-                         nodata_out=0., efficiency=None, algorithm='iterative', **kwargs):
+                         nodata_out=np.float64(0.), efficiency=None, algorithm='iterative', **kwargs):
         # Find nodata cells and invalid cells
         nodata_cells = self._get_nodata_cells(fdir)
         invalid_cells = ~np.in1d(fdir.ravel(), dirmap).reshape(fdir.shape)
@@ -1051,7 +1051,7 @@ class sGrid():
         return acc
 
     def distance_to_outlet(self, x, y, fdir, weights=None, dirmap=(64, 128, 1, 2, 4, 8, 16, 32),
-                           nodata_out=np.nan, routing='d8', method='shortest',
+                           nodata_out=np.float64(np.nan), routing='d8', method='shortest',
                            xytype='coordinate', snap='corner', algorithm='iterative', **kwargs):
         """
         Generates a raster representing the (weighted) topological distance from each cell
@@ -1414,7 +1414,7 @@ class sGrid():
             fdir_overrides = {'dtype' : np.int64, 'nodata' : fdir.nodata}
         else:
             raise NotImplementedError('Only implemented for `d8` routing.')
-        mask_overrides = {'dtype' : np.bool_, 'nodata' : False}
+        mask_overrides = {'dtype' : np.bool_, 'nodata' : np.bool(False)}
         kwargs.update(fdir_overrides)
         fdir = self._input_handler(fdir, **kwargs)
         kwargs.update(mask_overrides)
@@ -2372,7 +2372,7 @@ class sGrid():
             assert isinstance(mask, Raster)
         except:
             raise TypeError('`mask` must be a Raster instance.')
-        mask_overrides = {'dtype' : np.bool_, 'nodata' : False}
+        mask_overrides = {'dtype' : np.bool_, 'nodata' : np.bool(False)}
         kwargs.update(mask_overrides)
         mask = self._input_handler(mask, **kwargs)
         affine = mask.affine
