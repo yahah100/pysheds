@@ -1,13 +1,15 @@
 import sys
 import ast
 import copy
-# import pyproj
+from pathlib import Path
+from typing import Optional, Union, Tuple, Dict, Any, List, Generator, Iterable
 import numpy as np
 import pandas as pd
 import geojson
 from affine import Affine
 from numba.types import Tuple, int64
 from numba import from_dtype
+import numpy.typing as npt
 
 try:
     import skimage.measure
@@ -99,7 +101,7 @@ class sGrid():
                        useful for finding pour points from an accumulation raster.
     """
 
-    def __init__(self, viewfinder=None):
+    def __init__(self, viewfinder: Optional[ViewFinder] = None) -> None:
         if viewfinder is not None:
             try:
                 assert isinstance(viewfinder, ViewFinder)
@@ -109,15 +111,15 @@ class sGrid():
         else:
             self._viewfinder = ViewFinder(**self.defaults)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return repr(self.viewfinder)
 
     @property
-    def viewfinder(self):
+    def viewfinder(self) -> ViewFinder:
         return self._viewfinder
 
     @viewfinder.setter
-    def viewfinder(self, new_viewfinder):
+    def viewfinder(self, new_viewfinder: ViewFinder) -> None:
         try:
             assert isinstance(new_viewfinder, ViewFinder)
         except:
@@ -125,7 +127,7 @@ class sGrid():
         self._viewfinder = new_viewfinder
 
     @property
-    def defaults(self):
+    def defaults(self) -> Dict[str, Any]:
         props = {
             'affine' : Affine(1.,0.,0.,0.,1.,0.),
             'shape' : (1,1),
@@ -135,68 +137,68 @@ class sGrid():
         return props
 
     @property
-    def affine(self):
+    def affine(self) -> Affine:
         return self.viewfinder.affine
 
     @property
-    def shape(self):
+    def shape(self) -> Tuple[int, int]:
         return self.viewfinder.shape
 
     @property
-    def nodata(self):
+    def nodata(self) -> Union[int, float]:
         return self.viewfinder.nodata
 
     @property
-    def crs(self):
+    def crs(self) -> Any:  # pyproj.Proj type
         return self.viewfinder.crs
 
     @property
-    def mask(self):
+    def mask(self) -> npt.NDArray[np.bool_]:
         return self.viewfinder.mask
 
     @affine.setter
-    def affine(self, new_affine):
+    def affine(self, new_affine: Affine) -> None:
         self.viewfinder.affine = new_affine
 
     @shape.setter
-    def shape(self, new_shape):
+    def shape(self, new_shape: Tuple[int, int]) -> None:
         self.viewfinder.shape = new_shape
 
     @nodata.setter
-    def nodata(self, new_nodata):
+    def nodata(self, new_nodata: Union[int, float]) -> None:
         self.viewfinder.nodata = new_nodata
 
     @crs.setter
-    def crs(self, new_crs):
+    def crs(self, new_crs: Any) -> None:  # pyproj.Proj type
         self.viewfinder.crs = new_crs
 
     @mask.setter
-    def mask(self, new_mask):
+    def mask(self, new_mask: npt.NDArray[np.bool_]) -> None:
         self.viewfinder.mask = new_mask
 
     @property
-    def bbox(self):
+    def bbox(self) -> Tuple[float, float, float, float]:
         return self.viewfinder.bbox
 
     @property
-    def size(self):
+    def size(self) -> int:
         return self.viewfinder.size
 
     @property
-    def extent(self):
+    def extent(self) -> Tuple[float, float, float, float]:
         bbox = self.bbox
         extent = (self.bbox[0], self.bbox[2], self.bbox[1], self.bbox[3])
         return extent
 
-    def read_ascii(self, data, skiprows=6, mask=None,
-                   crs=projection.init(), xll='lower', yll='lower',
-                   metadata={}, **kwargs):
+    def read_ascii(self, data: Union[str, Path], skiprows: int = 6, mask: Optional[npt.NDArray[np.bool_]] = None,
+                   crs: Any = projection.init(), xll: str = 'lower', yll: str = 'lower',
+                   metadata: Dict[str, Any] = {}, **kwargs: Any) -> Raster:
         """
         Reads data from an ascii file and returns a Raster.
 
         Parameters
         ----------
-        data : str
+        data : str or Path
             File name or path.
         skiprows : int (optional)
                     The number of rows taken up by the header (defaults to 6).
@@ -223,14 +225,15 @@ class sGrid():
                                      crs=crs, xll=xll, yll=yll, metadata=metadata,
                                      **kwargs)
 
-    def read_raster(self, data, band=1, window=None, window_crs=None,
-                    metadata={}, mask_geometry=False, **kwargs):
+    def read_raster(self, data: Union[str, Path], band: int = 1, window: Optional[Tuple[float, float, float, float]] = None, 
+                    window_crs: Optional[Any] = None, metadata: Dict[str, Any] = {}, mask_geometry: bool = False, 
+                    **kwargs: Any) -> Raster:
         """
         Reads data from a raster file and returns a Raster object.
 
         Parameters
         ----------
-        data : str
+        data : str or Path
             File name or path.
         band : int
             The band number to read if multiband.
@@ -259,50 +262,52 @@ class sGrid():
                                       window_crs=window_crs, metadata=metadata,
                                       mask_geometry=mask_geometry, **kwargs)
 
-    def to_ascii(self, data, file_name, target_view=None, delimiter=' ',
-                 fmt=None, interpolation='nearest', apply_input_mask=False,
-                 apply_output_mask=True, inherit_nodata=True, affine=None,
-                 shape=None, crs=None, mask=None, nodata=None, dtype=None,
-                 **kwargs):
+    def to_ascii(self, data: Raster, file_name: Union[str, Path], target_view: Optional[ViewFinder] = None, 
+                 delimiter: str = ' ', fmt: Optional[str] = None, interpolation: str = 'nearest', 
+                 apply_input_mask: bool = False, apply_output_mask: bool = True, inherit_nodata: bool = True, 
+                 affine: Optional[Affine] = None, shape: Optional[Tuple[int, int]] = None, crs: Optional[Any] = None, 
+                 mask: Optional[npt.NDArray[np.bool_]] = None, nodata: Optional[Union[int, float]] = None, 
+                 dtype: Optional[np.dtype] = None, **kwargs: Any) -> None:
         """
         Writes a Raster object to a formatted ascii text file.
 
         Parameters
         ----------
-        data: Raster
-            Raster dataset to write.
-        file_name : str
-                    Name of file or path to write to.
+        data : Raster
+               Raster dataset to write.
+        file_name : str or Path
+                   Name of ascii file to write.
         target_view : ViewFinder
-                    ViewFinder to use when writing data. Defaults to self.viewfinder.
-        delimiter : string (optional)
-                    Delimiter to use in output file (defaults to ' ')
+                     ViewFinder to use for output raster. Defaults to the
+                     raster's ViewFinder.
+        delimiter : str
+                   Character used to separate values (defaults to ' ').
         fmt : str
-                Formatting for numeric data. Passed to np.savetxt.
+             Formatter for numeric values.
         interpolation : 'nearest', 'linear'
-                        Interpolation method to be used if spatial reference systems
-                        are not congruent.
+                       Interpolation method to be used if spatial reference systems
+                       are not congruent.
         apply_input_mask : bool
-                            If True, mask the input Raster according to self.mask.
+                          If True, mask the input Raster according to data.mask.
         apply_output_mask : bool
-                            If True, mask the output Raster according to target_view.mask.
+                          If True, mask the output Raster according to grid.mask.
         inherit_nodata : bool
-                         If True, output ascii inherits `nodata` value from `data`.
-                         If False, output ascii uses `nodata` value from grid's viewfinder.
+                        If True, output Raster inherits `nodata` value from `data` or `data_view`.
+                        If False, output Raster uses `nodata` value from grid's viewfinder.
         affine : affine.Affine
-                    Affine transformation matrix (overrides target_view.affine)
+                Affine transformation matrix (overrides target_view.affine)
         shape : tuple of ints (length 2)
-                Shape of desired Raster (overrides target_view.shape)
+               Shape of desired Raster (overrides target_view.shape)
         crs : pyproj.Proj
-                Coordinate reference system (overrides target_view.crs)
+             Coordinate reference system (overrides target_view.crs)
         mask : np.ndarray or Raster
-                Boolean array to mask output (overrides target_view.mask)
+              Boolean array to mask output (overrides target_view.mask)
         nodata : int or float
-                    Value indicating no data in output Raster (overrides target_view.nodata)
+                Value indicating no data in output Raster (overrides target_view.nodata)
         dtype : numpy datatype
-                Desired datatype of the output array.
+               Desired datatype of the output array.
 
-        Additional keyword arguments (**kwargs) are passed to np.savetxt
+        Additional keyword arguments (**kwargs) are passed to self.view.
         """
         if target_view is None:
             target_view = self.viewfinder
@@ -315,11 +320,12 @@ class sGrid():
                                    mask=mask, nodata=nodata,
                                    dtype=dtype, **kwargs)
 
-    def to_raster(self, data, file_name, target_view=None, profile=None,
-                  blockxsize=256, blockysize=256, interpolation='nearest',
-                  apply_input_mask=False, apply_output_mask=True,
-                  inherit_nodata=True, affine=None, shape=None, crs=None,
-                  mask=None, nodata=None, dtype=None, **kwargs):
+    def to_raster(self, data: Raster, file_name: Union[str, Path], target_view: Optional[ViewFinder] = None, 
+                  profile: Optional[Dict[str, Any]] = None, blockxsize: int = 256, blockysize: int = 256, 
+                  interpolation: str = 'nearest', apply_input_mask: bool = False, apply_output_mask: bool = True,
+                  inherit_nodata: bool = True, affine: Optional[Affine] = None, shape: Optional[Tuple[int, int]] = None, 
+                  crs: Optional[Any] = None, mask: Optional[npt.NDArray[np.bool_]] = None, 
+                  nodata: Optional[Union[int, float]] = None, dtype: Optional[np.dtype] = None, **kwargs: Any) -> None:
         """
         Writes gridded data to a raster.
 
@@ -374,35 +380,35 @@ class sGrid():
                                     **kwargs)
 
     @classmethod
-    def from_ascii(cls, data, **kwargs):
+    def from_ascii(cls, data: Union[str, Path], **kwargs: Any) -> 'sGrid':
         """
-        Instantiates grid from an ascii text file.
+        Instantiates grid from an ascii file.
 
         Parameters
         ----------
-        data: str
-              File path of ascii text file.
+        data: str or Path
+              Ascii data to use for instantiation.
 
         Additional keyword arguments (**kwargs) are passed to self.read_ascii.
 
         Returns
         -------
-        new_grid : Grid
-                   A new Grid instance with its ViewFinder defined by the ascii file.
+        new_grid : sGrid
+                   A new sGrid instance with its ViewFinder defined by the input data.
         """
         newinstance = cls()
-        data = newinstance.read_ascii(data, **kwargs)
-        newinstance.viewfinder = data.viewfinder
+        newdata = newinstance.read_ascii(data, **kwargs)
+        newinstance.viewfinder = newdata.viewfinder
         return newinstance
 
     @classmethod
-    def from_raster(cls, data, **kwargs):
+    def from_raster(cls, data: Union[Raster, str, Path], **kwargs: Any) -> 'sGrid':
         """
         Instantiates grid from a raster object or raster file.
 
         Parameters
         ----------
-        data: Raster or str representing file path
+        data: Raster or str or Path representing file path
               Raster data to use for instantiation.
 
         Additional keyword arguments (**kwargs) are passed to self.read_raster if
@@ -410,8 +416,8 @@ class sGrid():
 
         Returns
         -------
-        new_grid : Grid
-                   A new Grid instance with its ViewFinder defined by the input raster.
+        new_grid : sGrid
+                   A new sGrid instance with its ViewFinder defined by the input raster.
         """
         newinstance = cls()
         if isinstance(data, Raster):
@@ -421,13 +427,19 @@ class sGrid():
             data = newinstance.read_raster(data, **kwargs)
             newinstance.viewfinder = data.viewfinder
             return newinstance
+        elif isinstance(data, Path):
+            data = newinstance.read_raster(data, **kwargs)
+            newinstance.viewfinder = data.viewfinder
+            return newinstance
         else:
-            raise TypeError('`data` must be a Raster or str.')
+            raise TypeError('`data` must be a Raster, str, or Path.')
 
-    def view(self, data, data_view=None, target_view=None, interpolation='nearest',
-             apply_input_mask=False, apply_output_mask=True, inherit_nodata=True,
-             affine=None, shape=None, crs=None, mask=None, nodata=None,
-             dtype=None, inherit_metadata=True, new_metadata={}, **kwargs):
+    def view(self, data: Raster, data_view: Optional[ViewFinder] = None, target_view: Optional[ViewFinder] = None, 
+             interpolation: str = 'nearest', apply_input_mask: bool = False, apply_output_mask: bool = True, 
+             inherit_nodata: bool = True, affine: Optional[Affine] = None, shape: Optional[Tuple[int, int]] = None, 
+             crs: Optional[Any] = None, mask: Optional[npt.NDArray[np.bool_]] = None, 
+             nodata: Optional[Union[int, float]] = None, dtype: Optional[np.dtype] = None, 
+             inherit_metadata: bool = True, new_metadata: Dict[str, Any] = {}, **kwargs: Any) -> Raster:
         """
         Return a copy of a gridded dataset transformed to a new spatial reference system. The
         spatial reference system is determined by a ViewFinder instance, and is completely
@@ -507,10 +519,10 @@ class sGrid():
         # Return output
         return out
 
-    def nearest_cell(self, x, y, affine=None, snap='corner'):
+    def nearest_cell(self, x: Union[int, float], y: Union[int, float], affine: Optional[Affine] = None, snap: str = 'corner') -> Tuple[int, int]:
         """
-        Returns the index of the cell (column, row) closest
-        to a given geographical coordinate.
+        Returns the index (column, row) of the cell closest to a point
+        (x, y) in the grid's coordinate reference system.
 
         Parameters
         ----------
@@ -523,14 +535,14 @@ class sGrid():
                  geographic x/y coordinate and array row/column coordinate.
                  Defaults to self.affine.
         snap : str
-               Indicates the cell indexing method. If "corner", will resolve to
-               snapping the (x,y) geometry to the index of the nearest top-left
-               cell corner. If "center", will return the index of the cell that
-               the geometry falls within.
+               Function to use on array of nearest-neighbor distances.
+                 - 'corner' : snap to nearest grid corner
+                 - 'center' : snap to nearest grid center
+
         Returns
         -------
-        col, row : tuple of ints
-                   Column index and row index
+        x_index, y_index : tuple of ints (length 2)
+                           Column and row indices of the nearest cell.
         """
         if not affine:
             affine = self.affine
@@ -553,8 +565,9 @@ class sGrid():
         new_raster = View.trim_zeros(data, pad=pad)
         self.viewfinder = new_raster.viewfinder
 
-    def flowdir(self, dem, routing='d8', flats=-1, pits=-2, nodata_out=None,
-                dirmap=(64, 128, 1, 2, 4, 8, 16, 32), **kwargs):
+    def flowdir(self, dem: Raster, routing: str = 'd8', flats: int = -1, pits: int = -2, 
+                nodata_out: Optional[Union[int, float]] = None,
+                dirmap: Tuple[int, ...] = (64, 128, 1, 2, 4, 8, 16, 32), **kwargs: Any) -> Raster:
         """
         Generates a flow direction raster from a DEM grid. Both d8 and d-infinity routing
         are supported.
@@ -659,20 +672,21 @@ class sGrid():
                                     metadata=dem.metadata, nodata=nodata_out,
                                     mask=new_mask)
 
-    def catchment(self, x, y, fdir, pour_value=None, dirmap=(64, 128, 1, 2, 4, 8, 16, 32),
-                  nodata_out=np.bool(False), xytype='coordinate', routing='d8', snap='corner',
-                  algorithm='iterative', **kwargs):
+    def catchment(self, x: Union[int, float], y: Union[int, float], fdir: Raster, pour_value: Optional[Union[int, float]] = None, 
+                  dirmap: Tuple[int, ...] = (64, 128, 1, 2, 4, 8, 16, 32), nodata_out: Union[int, float, bool] = np.bool(False), 
+                  xytype: str = 'coordinate', routing: str = 'd8', snap: str = 'corner',
+                  algorithm: str = 'iterative', **kwargs: Any) -> Raster:
         """
         Delineates a watershed from a given pour point (x, y).
 
         Parameters
         ----------
         x : float or int
-            x coordinate (or index) of pour point
+            x coordinate of pour point
         y : float or int
-            y coordinate (or index) of pour point
+            y coordinate of pour point
         fdir : Raster
-               Flow direction data.
+               Flow direction raster.
         pour_value : int or None
                      If not None, value to represent pour point in catchment
                      grid.
@@ -680,36 +694,34 @@ class sGrid():
                  List of integer values representing the following
                  cardinal and intercardinal directions (in order):
                  [N, NE, E, SE, S, SW, W, NW]
-        nodata_out : int or float
-                     Value to indicate `no data` in output array.
-        xytype : str
+        nodata_out : int, float, or bool
+                     Value to indicate nodata in output array.
+        xytype : 'coordinate' or 'index'
                  How to interpret parameters 'x' and 'y'.
-                     'coordinate' : x and y represent geographic coordinates
-                                    (will be passed to self.nearest_cell).
-                     'index' : x and y represent the column and row
-                               indices of the pour point.
+                     - 'coordinate' : x and y represent geographic coordinates
+                                      (will be passed to self.nearest_cell)
+                     - 'index' : x and y represent the column and row
+                                 indices of the pour point.
         routing : str
                   Routing algorithm to use:
                   'd8'   : D8 flow directions
                   'dinf' : D-infinity flow directions
                   'mfd'  : Multiple flow directions
         snap : str
-               Function to use for self.nearest_cell:
-               'corner' : numpy.around()
-               'center' : numpy.floor()
+               Function to use on array of nearest-neighbor distances.
+                 - 'corner' : np.amin
+                 - 'center' : np.mean
         algorithm : str
-                    Algorithm type to use:
-                    'iterative' : Use an iterative algorithm (recommended).
-                    'recursive' : Use a recursive algorithm.
+                   Algorithm type to use for catchment delineation.
+                     - 'iterative' : Iterative algorithm (recommended)
+                     - 'recursive' : Recursive algorithm
 
         Additional keyword arguments (**kwargs) are passed to self.view.
 
         Returns
         -------
         catch : Raster
-                Raster indicating cells that lie in the catchment. The dtype will be
-                np.bool_, unless `pour_value` is specified, in which case the dtype will
-                be the smallest dtype capable of representing the pour value.
+                Raster indicating cells within the catchment.
         """
         if routing.lower() == 'd8':
             input_overrides = {'dtype' : np.int64, 'nodata' : fdir.nodata}
@@ -818,9 +830,9 @@ class sGrid():
                                      mask=new_mask)
         return catch
 
-    def accumulation(self, fdir, weights=None, dirmap=(64, 128, 1, 2, 4, 8, 16, 32),
-                     nodata_out=np.float64(0.), efficiency=None, routing='d8', cycle_size=1,
-                     algorithm='iterative', **kwargs):
+    def accumulation(self, fdir: Raster, weights: Optional[Raster] = None, dirmap: Tuple[int, ...] = (64, 128, 1, 2, 4, 8, 16, 32),
+                     nodata_out: Union[int, float] = np.float64(0.), efficiency: Optional[Raster] = None, routing: str = 'd8', 
+                     cycle_size: int = 1, algorithm: str = 'iterative', **kwargs: Any) -> Raster:
         """
         Generates a flow accumulation raster. If no weights are provided, the value of each cell
         is equal to the number of upstream cells. If weights are provided, the value of each cell
@@ -829,19 +841,20 @@ class sGrid():
         Parameters
         ----------
         fdir : Raster
-               Flow direction data.
-        weights: Raster
-                 Weights to be applied to each accumulation cell. Defaults to the
-                 vector of all ones.
+               Flow direction raster.
+        weights : Raster (optional)
+                  If provided, the value in each cell of the output accumulation raster
+                  will be the sum of the upslope cells multiplied by the cell values of
+                  the weights raster.
         dirmap : list or tuple (length 8)
                  List of integer values representing the following
                  cardinal and intercardinal directions (in order):
                  [N, NE, E, SE, S, SW, W, NW]
-        efficiency: Raster
-                    Transport efficiency, relative correction factor applied to the
-                    outflow of each cell. Nodata will be set to 1, i.e. no correction.
         nodata_out : int or float
-                     Value to indicate nodata in output raster.
+                     Value to indicate nodata in output array.
+        efficiency : Raster (optional)
+                     Drainage efficiency raster. Used to fractionally weight accumulation.
+                     If efficiency is 1, all water drains. If efficiency is 0, no water drains.
         routing : str
                   Routing algorithm to use:
                   'd8'   : D8 flow directions
@@ -853,14 +866,14 @@ class sGrid():
                      the accumulation algorithm to abort. These cycles are removed prior
                      to running the d-infinity accumulation algorithm.)
         algorithm : str
-                    Algorithm type to use:
-                    'iterative' : Use an iterative algorithm (recommended).
-                    'recursive' : Use a recursive algorithm.
+                   Algorithm type to use for accumulation.
+                     - 'iterative' : Iterative algorithm (recommended)
+                     - 'recursive' : Recursive algorithm
 
         Additional keyword arguments (**kwargs) are passed to self.view.
 
         Returns
-        --------
+        -------
         acc : Raster
               Raster indicating the (weighted) accumulation at each cell.
         """
