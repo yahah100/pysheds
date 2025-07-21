@@ -1,10 +1,20 @@
 #!/usr/bin/env python
 
 from setuptools import setup
+import os
+
+# Read version from __init__.py
+def get_version():
+    version_file = os.path.join(os.path.dirname(__file__), 'pysheds', '__init__.py')
+    with open(version_file, 'r') as f:
+        for line in f:
+            if line.startswith('__version__'):
+                return line.split('=')[1].strip().strip('"').strip("'")
+    raise RuntimeError('Unable to find version string.')
 
 setup(
     name="pysheds",
-    version="0.4",
+    version=get_version(),  
     description="🌎 Simple and fast watershed delineation in python.",
     long_description="🌎 Simple and fast watershed delineation in python.",
     long_description_content_type="text/x-rst",
