@@ -7,7 +7,6 @@ import numpy as np
 import pandas as pd
 import geojson
 from affine import Affine
-from numba.types import Tuple, int64
 from numba import from_dtype
 import numpy.typing as npt
 
