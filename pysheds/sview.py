@@ -1,8 +1,14 @@
 import copy
 import numpy as np
+from typing import Optional, Union, Tuple, Dict, Any, ClassVar, TYPE_CHECKING
+from numpy.typing import NDArray
 from . import projection
 from affine import Affine
 from looseversion import LooseVersion
+
+if TYPE_CHECKING:
+    import pyproj
+
 try:
     import scipy.spatial
     _HAS_SCIPY = True
@@ -10,6 +16,15 @@ except ModuleNotFoundError:
     _HAS_SCIPY = False
 
 import pysheds._sview as _self
+
+# Type aliases for better readability
+ArrayLike = Union[np.ndarray, 'Raster', 'MultiRaster']
+Shape2D = Tuple[int, int]
+Shape3D = Tuple[int, int, int]
+BBox = Tuple[float, float, float, float]
+Extent = Tuple[float, float, float, float]
+Coordinates = Tuple[Union[float, NDArray[np.float64]], Union[float, NDArray[np.float64]]]
+CRS = Union['pyproj.Proj', 'pyproj.CRS', str, dict, None]
 
 
 class Raster(np.ndarray):
@@ -46,7 +61,11 @@ class Raster(np.ndarray):
              by a pyproj.Proj object.
     """
 
-    def __new__(cls, input_array, viewfinder=None, metadata={}):
+    _viewfinder: 'ViewFinder'
+    metadata: Dict[str, Any]
+
+    def __new__(cls, input_array: ArrayLike, viewfinder: Optional['ViewFinder'] = None, 
+                metadata: Dict[str, Any] = {}) -> 'Raster':
         try:
             # MultiRaster must be subclass of ndarray
             assert isinstance(input_array, np.ndarray)
@@ -93,14 +112,15 @@ class Raster(np.ndarray):
         obj.metadata = metadata
         return obj
 
-    def __array_finalize__(self, obj):
+    def __array_finalize__(self, obj: Optional['Raster']) -> None:
         if obj is None:
             return
         self._viewfinder = getattr(obj, 'viewfinder', None)
         self.metadata = getattr(obj, 'metadata', None)
 
     @classmethod
-    def _handle_raster_input(cls, input_array, viewfinder, metadata):
+    def _handle_raster_input(cls, input_array: 'Raster', viewfinder: Optional['ViewFinder'], 
+                           metadata: Dict[str, Any]) -> Tuple['Raster', 'ViewFinder', Dict[str, Any]]:
         if not metadata:
             metadata = input_array.metadata
         # If no viewfinder provided, use viewfinder of input raster
@@ -118,11 +138,11 @@ class Raster(np.ndarray):
         return input_array, viewfinder, metadata
 
     @property
-    def viewfinder(self):
+    def viewfinder(self) -> 'ViewFinder':
         return self._viewfinder
 
     @viewfinder.setter
-    def viewfinder(self, new_viewfinder):
+    def viewfinder(self, new_viewfinder: 'ViewFinder') -> None:
         try:
             assert(isinstance(new_viewfinder, ViewFinder))
         except:
@@ -134,19 +154,19 @@ class Raster(np.ndarray):
         self._viewfinder = new_viewfinder
 
     @property
-    def affine(self):
+    def affine(self) -> Affine:
         return self.viewfinder.affine
 
     @affine.setter
-    def affine(self, new_affine):
+    def affine(self, new_affine: Affine) -> None:
         self.viewfinder.affine = new_affine
 
     @property
-    def mask(self):
+    def mask(self) -> NDArray[np.bool_]:
         return self.viewfinder.mask
 
     @mask.setter
-    def mask(self, new_mask):
+    def mask(self, new_mask: NDArray[np.bool_]) -> None:
         try:
             assert (new_mask.shape == self.shape)
         except:
@@ -154,41 +174,41 @@ class Raster(np.ndarray):
         self.viewfinder.mask = new_mask
 
     @property
-    def nodata(self):
+    def nodata(self) -> Union[int, float]:
         return self.viewfinder.nodata
 
     @nodata.setter
-    def nodata(self, new_nodata):
+    def nodata(self, new_nodata: Union[int, float]) -> None:
         self.viewfinder.nodata = new_nodata
 
     @property
-    def crs(self):
+    def crs(self) -> CRS:
         return self.viewfinder.crs
 
     @crs.setter
-    def crs(self, new_crs):
+    def crs(self, new_crs: CRS) -> None:
         self.viewfinder.crs = new_crs
 
     @property
-    def bbox(self):
+    def bbox(self) -> BBox:
         return self.viewfinder.bbox
 
     @property
-    def coords(self):
+    def coords(self) -> NDArray[np.float64]:
         return self.viewfinder.coords
 
     @property
-    def axes(self):
+    def axes(self) -> Tuple[NDArray[np.float64], NDArray[np.float64]]:
         return self.viewfinder.axes
 
     @property
-    def extent(self):
+    def extent(self) -> Extent:
         bbox = self.viewfinder.bbox
         extent = (bbox[0], bbox[2], bbox[1], bbox[3])
         return extent
 
     @property
-    def properties(self):
+    def properties(self) -> Dict[str, Any]:
         property_dict = {
             'affine' : self.viewfinder.affine,
             'shape' : self.viewfinder.shape,
@@ -199,10 +219,10 @@ class Raster(np.ndarray):
         return property_dict
 
     @property
-    def dy_dx(self):
+    def dy_dx(self) -> Tuple[float, float]:
         return (abs(self.affine.e), abs(self.affine.a))
 
-    def to_crs(self, new_crs, **kwargs):
+    def to_crs(self, new_crs: CRS, **kwargs: Any) -> 'Raster':
         """
         Transforms and resamples the Raster in a new coordinate reference system.
         A new ViewFinder is generated such that all points in the old Raster are
@@ -249,7 +269,8 @@ class Raster(np.ndarray):
         return new_raster
 
 class MultiRaster(Raster):
-    def __new__(cls, input_array, viewfinder=None, metadata={}):
+    def __new__(cls, input_array: ArrayLike, viewfinder: Optional['ViewFinder'] = None, 
+                metadata: Dict[str, Any] = {}) -> 'MultiRaster':
         try:
             # MultiRaster must be subclass of ndarray
             assert isinstance(input_array, np.ndarray)
@@ -328,8 +349,17 @@ class ViewFinder():
                  `shape`, `mask`, `crs`, and `nodata`.
     dy_dx : Tuple describing the cell size in the y and x directions.
     """
-    def __init__(self, affine=Affine(1., 0., 0., 0., 1., 0.), shape=(1,1),
-                 nodata=0, mask=None, crs=projection.init()):
+    
+    _affine: Affine
+    _mask: NDArray[np.bool_]
+    _nodata: Union[int, float]
+    _crs: CRS
+    
+    def __init__(self, affine: Affine = Affine(1., 0., 0., 0., 1., 0.), 
+                 shape: Union[Shape2D, Shape3D] = (1,1),
+                 nodata: Union[int, float] = 0, 
+                 mask: Optional[NDArray[np.bool_]] = None, 
+                 crs: CRS = projection.init()) -> None:
         self.affine = affine
         self.crs = crs
         self.nodata = nodata
@@ -338,7 +368,7 @@ class ViewFinder():
         else:
             self.mask = mask
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, ViewFinder):
             is_eq = True
             is_eq &= (self.affine == other.affine)
@@ -353,17 +383,17 @@ class ViewFinder():
         else:
             return False
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         repr_str = '\n'.join([repr(k) + ' : ' + repr(v)
                               for k, v in self.properties.items()])
         return repr_str
 
     @property
-    def affine(self):
+    def affine(self) -> Affine:
         return self._affine
 
     @affine.setter
-    def affine(self, new_affine):
+    def affine(self, new_affine: Affine) -> None:
         try:
             assert(isinstance(new_affine, Affine))
         except:
@@ -371,19 +401,19 @@ class ViewFinder():
         self._affine = new_affine
 
     @property
-    def shape(self):
+    def shape(self) -> Union[Shape2D, Shape3D]:
         return self.mask.shape
 
     @shape.setter
-    def shape(self, new_shape):
+    def shape(self, new_shape: Union[Shape2D, Shape3D]) -> None:
         raise AttributeError('Viewfinder shape cannot be changed after instantiation.')
 
     @property
-    def mask(self):
+    def mask(self) -> NDArray[np.bool_]:
         return self._mask
 
     @mask.setter
-    def mask(self, new_mask):
+    def mask(self, new_mask: NDArray[np.bool_]) -> None:
         try:
             assert (np.min_scalar_type(new_mask) <= np.dtype(np.bool_))
         except:
@@ -392,11 +422,11 @@ class ViewFinder():
         self._mask = new_mask
 
     @property
-    def nodata(self):
+    def nodata(self) -> Union[int, float]:
         return self._nodata
 
     @nodata.setter
-    def nodata(self, new_nodata):
+    def nodata(self, new_nodata: Union[int, float]) -> None:
         try:
             assert not (np.min_scalar_type(new_nodata) == np.dtype('O'))
         except:
@@ -404,19 +434,19 @@ class ViewFinder():
         self._nodata = new_nodata
 
     @property
-    def crs(self):
+    def crs(self) -> CRS:
         return self._crs
 
     @crs.setter
-    def crs(self, new_crs):
+    def crs(self, new_crs: CRS) -> None:
         self._crs = projection.to_proj(new_crs)
 
     @property
-    def size(self):
+    def size(self) -> int:
         return np.prod(self.shape)
 
     @property
-    def bbox(self):
+    def bbox(self) -> BBox:
         shape = self.shape
         xmin, ymax = View.affine_transform(self.affine, 0, 0)
         xmax, ymin = View.affine_transform(self.affine, shape[-1], shape[-2])
@@ -424,22 +454,22 @@ class ViewFinder():
         return _bbox
 
     @property
-    def extent(self):
+    def extent(self) -> Extent:
         bbox = self.bbox
         extent = (bbox[0], bbox[2], bbox[1], bbox[3])
         return extent
 
     @property
-    def coords(self):
+    def coords(self) -> NDArray[np.float64]:
         coordinates = np.meshgrid(*self.axes, indexing='ij')
         return np.vstack(np.dstack(coordinates))
 
     @property
-    def dy_dx(self):
+    def dy_dx(self) -> Tuple[float, float]:
         return (-self.affine.e, self.affine.a)
 
     @property
-    def properties(self):
+    def properties(self) -> Dict[str, Any]:
         property_dict = {
             'affine' : self.affine,
             'shape' : self.shape,
@@ -450,11 +480,11 @@ class ViewFinder():
         return property_dict
 
     @property
-    def axes(self):
+    def axes(self) -> Tuple[NDArray[np.float64], NDArray[np.float64]]:
         shape = self.shape
         return View.axes(self.affine, (shape[-2], shape[-1]))
 
-    def is_congruent_with(self, other):
+    def is_congruent_with(self, other: 'ViewFinder') -> bool:
         if isinstance(other, ViewFinder):
             is_congruent = True
             is_congruent &= (self.affine == other.affine)
@@ -465,11 +495,11 @@ class ViewFinder():
         else:
             return False
 
-    def copy(self):
+    def copy(self) -> 'ViewFinder':
         new_view = copy.deepcopy(self)
         return new_view
 
-    def view(self, raster, **kwargs):
+    def view(self, raster: Union[Raster, MultiRaster], **kwargs: Any) -> Union[Raster, MultiRaster]:
         data_view = raster.viewfinder
         target_view = self
         return View.view(raster, data_view, target_view, **kwargs)
@@ -487,15 +517,20 @@ class View():
     clip_to_mask : Clip a raster to a pre-defined Raster mask.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         raise NotImplementedError('The View class is used for classmethods '
                                   'and is not meant to be instantiated.')
 
     @classmethod
-    def view(cls, data, target_view, data_view=None, interpolation='nearest',
-             apply_input_mask=False, apply_output_mask=True, inherit_nodata=True,
-             affine=None, shape=None, crs=None, mask=None, nodata=None,
-             dtype=None, inherit_metadata=True, new_metadata={}):
+    def view(cls, data: Union[Raster, MultiRaster, NDArray], target_view: ViewFinder, 
+             data_view: Optional[ViewFinder] = None, interpolation: str = 'nearest',
+             apply_input_mask: bool = False, apply_output_mask: bool = True, 
+             inherit_nodata: bool = True,
+             affine: Optional[Affine] = None, shape: Optional[Union[Shape2D, Shape3D]] = None, 
+             crs: Optional[CRS] = None, mask: Optional[NDArray[np.bool_]] = None, 
+             nodata: Optional[Union[int, float]] = None,
+             dtype: Optional[np.dtype] = None, inherit_metadata: bool = True, 
+             new_metadata: Dict[str, Any] = {}) -> Union[Raster, MultiRaster]:
         """
         Return a copy of a gridded dataset `data` transformed to the spatial reference
         system defined by `target_view`.
@@ -599,8 +634,10 @@ class View():
         return out
 
     @classmethod
-    def _view_raster(cls, data, target_view, data_view=None, interpolation='nearest',
-                     apply_output_mask=True, dtype=None, out=None):
+    def _view_raster(cls, data: Union[Raster, NDArray], target_view: ViewFinder, 
+                     data_view: Optional[ViewFinder] = None, interpolation: str = 'nearest',
+                     apply_output_mask: bool = True, dtype: Optional[np.dtype] = None, 
+                     out: Optional[NDArray] = None) -> Raster:
         # Create an output array to fill
         if out is None:
             out = np.empty(target_view.shape, dtype=dtype)
@@ -616,8 +653,10 @@ class View():
         return out
 
     @classmethod
-    def _view_multiraster(cls, data, target_view, data_view=None, interpolation='nearest',
-                          apply_output_mask=True, dtype=None, out=None):
+    def _view_multiraster(cls, data: Union[MultiRaster, NDArray], target_view: ViewFinder, 
+                          data_view: Optional[ViewFinder] = None, interpolation: str = 'nearest',
+                          apply_output_mask: bool = True, dtype: Optional[np.dtype] = None, 
+                          out: Optional[NDArray] = None) -> MultiRaster:
         k, m, n = data.shape
         if out is None:
             out = np.empty((k, *target_view.shape), dtype=dtype)
@@ -638,7 +677,9 @@ class View():
         return out
 
     @classmethod
-    def affine_transform(cls, affine, x, y):
+    def affine_transform(cls, affine: Affine, 
+                        x: Union[float, NDArray[np.float64]], 
+                        y: Union[float, NDArray[np.float64]]) -> Coordinates:
         """
         Basic affine transformation of a point (x, y) or set of points (x, y).
 
@@ -678,7 +719,8 @@ class View():
         return x_t, y_t
 
     @classmethod
-    def nearest_cell(cls, x, y, affine, snap='corner'):
+    def nearest_cell(cls, x: Union[int, float], y: Union[int, float], 
+                    affine: Affine, snap: str = 'corner') -> Tuple[int, int]:
         """
         Returns the index of the cell (column, row) closest
         to a given geographical coordinate.
@@ -713,7 +755,7 @@ class View():
         return col, row
 
     @classmethod
-    def axes(cls, affine, shape):
+    def axes(cls, affine: Affine, shape: Shape2D) -> Tuple[NDArray[np.float64], NDArray[np.float64]]:
         """
         Return row and column coordinates of axes, such that the cartesian product
         of the two axis vectors uniquely addresses each grid cell.
@@ -739,7 +781,9 @@ class View():
         return y, x
 
     @classmethod
-    def snap_to_mask(cls, mask, xy, affine=None, return_dist=False, **kwargs):
+    def snap_to_mask(cls, mask: Union[Raster, NDArray], xy: NDArray[np.float64], 
+                    affine: Optional[Affine] = None, return_dist: bool = False, 
+                    **kwargs: Any) -> Union[NDArray[np.float64], Tuple[NDArray[np.float64], NDArray[np.float64]]]:
         """
         Snap a set of coordinates (given by `xy`) to the nearest nonzero cells in a
         boolean raster (given by `mask`). (Note that the mask raster is first mapped to the
@@ -785,7 +829,7 @@ class View():
             return tree_xy[ix]
 
     @classmethod
-    def trim_zeros(cls, data, pad=(0,0,0,0)):
+    def trim_zeros(cls, data: Raster, pad: Tuple[int, int, int, int] = (0,0,0,0)) -> Raster:
         """Clip a Raster to the smallest area that contains all non-null data.
 
         Parameters
@@ -818,7 +862,8 @@ class View():
         return cls.clip_to_mask(data, mask=mask, pad=pad)
 
     @classmethod
-    def clip_to_mask(cls, data, mask=None, pad=(0,0,0,0)):
+    def clip_to_mask(cls, data: Raster, mask: Optional[Raster] = None, 
+                    pad: Tuple[int, int, int, int] = (0,0,0,0)) -> Raster:
         """Clip a Raster to the smallest area that contains all nonzero entries for a given boolean mask.
 
         Parameters
@@ -883,7 +928,7 @@ class View():
         return out
 
     @classmethod
-    def _override_target_view(cls, target_view, **kwargs):
+    def _override_target_view(cls, target_view: ViewFinder, **kwargs: Any) -> ViewFinder:
         new_view = ViewFinder(**target_view.properties)
         for param, value in kwargs.items():
             if (value is not None) and (hasattr(new_view, param)):
@@ -891,7 +936,8 @@ class View():
         return new_view
 
     @classmethod
-    def _override_dtype(cls, data, target_view, dtype=None, interpolation='nearest'):
+    def _override_dtype(cls, data: Union[Raster, MultiRaster, NDArray], target_view: ViewFinder, 
+                       dtype: Optional[np.dtype] = None, interpolation: str = 'nearest') -> np.dtype:
         if dtype is not None:
             return dtype
         if interpolation == 'nearest':
@@ -912,8 +958,9 @@ class View():
         return dtype
 
     @classmethod
-    def _view_same_viewfinder(cls, data, data_view, target_view, out, dtype,
-                              apply_output_mask=True):
+    def _view_same_viewfinder(cls, data: Union[Raster, NDArray], data_view: ViewFinder, 
+                             target_view: ViewFinder, out: NDArray, dtype: np.dtype,
+                             apply_output_mask: bool = True) -> Raster:
         out[:] = data
         has_output_mask = not target_view.mask.all()
         if (apply_output_mask) and (has_output_mask):
@@ -922,8 +969,9 @@ class View():
         return out_raster
 
     @classmethod
-    def _view_different_viewfinder(cls, data, data_view, target_view, out, dtype,
-                                   apply_output_mask=True, interpolation='nearest'):
+    def _view_different_viewfinder(cls, data: Union[Raster, NDArray], data_view: ViewFinder, 
+                                  target_view: ViewFinder, out: NDArray, dtype: np.dtype,
+                                  apply_output_mask: bool = True, interpolation: str = 'nearest') -> Raster:
         if (data_view.crs == target_view.crs):
             out = cls._view_same_crs(out, data, data_view,
                                      target_view, interpolation)
@@ -937,7 +985,8 @@ class View():
         return out_raster
 
     @classmethod
-    def _view_same_crs(cls, view, data, data_view, target_view, interpolation='nearest'):
+    def _view_same_crs(cls, view: NDArray, data: Union[Raster, NDArray], data_view: ViewFinder,
+                      target_view: ViewFinder, interpolation: str = 'nearest') -> NDArray:
         y, x = target_view.axes
         inv_affine = ~data_view.affine
         _, y_ix = cls.affine_transform(inv_affine,
@@ -957,7 +1006,8 @@ class View():
         return view
 
     @classmethod
-    def _view_different_crs(cls, view, data, data_view, target_view, interpolation='nearest'):
+    def _view_different_crs(cls, view: NDArray, data: Union[Raster, NDArray], data_view: ViewFinder,
+                           target_view: ViewFinder, interpolation: str = 'nearest') -> NDArray:
         y, x = target_view.coords.T
         xt, yt = projection.transform(target_view.crs, data_view.crs, x=x, y=y,
                                   errcheck=True, always_xy=True)
