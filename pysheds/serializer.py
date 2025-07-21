@@ -27,6 +27,8 @@ class PyshedsSerializer:
             Base filename (without extension)
         """
         base_path = Path(base_filename)
+        base_path.mkdir(parents=True, exist_ok=True)
+        
         vf = grid.viewfinder
         
         # Save metadata as JSON
@@ -107,7 +109,10 @@ class PyshedsSerializer:
         base_filename : str or Path
             Base filename (without extension)
         """
+
         base_path = Path(base_filename)
+        base_path.mkdir(parents=True, exist_ok=True)
+
         vf = raster.viewfinder
         
         # Determine raster type
@@ -210,8 +215,6 @@ class PyshedsSerializer:
             Base filename (without extension)
         """
         base_path = Path(base_filename)
-
-        # Create directory if it doesn't exist
         base_path.mkdir(parents=True, exist_ok=True)
         
         # Metadata for all objects
