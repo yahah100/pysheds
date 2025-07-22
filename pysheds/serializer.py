@@ -182,9 +182,14 @@ class PyshedsSerializer:
             # Cast to numpy type that matches the data dtype
             data_dtype = np.dtype(metadata['data_dtype'])
             if np.issubdtype(data_dtype, np.floating):
-                nodata = np.float64(nodata)
+                if data_dtype == np.float32:
+                    nodata = np.float32(nodata)
+                else:
+                    nodata = np.float64(nodata)
             elif np.issubdtype(data_dtype, np.integer):
                 nodata = np.int64(nodata)
+            else:
+                raise ValueError(f"Unsupported data dtype: {data_dtype}")
         
         # Reconstruct ViewFinder
         affine = Affine(*metadata['affine'])
