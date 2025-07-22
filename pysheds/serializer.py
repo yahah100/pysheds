@@ -42,7 +42,7 @@ class PyshedsSerializer:
             'mask_dtype': str(vf.mask.dtype)
         }
         
-        with open(f"{base_path}.json", 'w') as f:
+        with open(f"{base_path}_grid.json", 'w') as f:
             json.dump(metadata, f, indent=2)
         
         # Save mask as compressed numpy array
@@ -68,7 +68,7 @@ class PyshedsSerializer:
         base_path = Path(base_filename)
         
         # Load metadata
-        with open(f"{base_path}.json", 'r') as f:
+        with open(f"{base_path}_grid.json", 'r') as f:
             metadata = json.load(f)
         
         if metadata['type'] != 'sGrid':
@@ -132,7 +132,7 @@ class PyshedsSerializer:
             'metadata': raster.metadata
         }
         
-        with open(f"{base_path}.json", 'w') as f:
+        with open(f"{base_path}_raster.json", 'w') as f:
             json.dump(metadata, f, indent=2)
         
         # Save raster data as compressed numpy array
@@ -161,7 +161,7 @@ class PyshedsSerializer:
         base_path = Path(base_filename)
         
         # Load metadata
-        with open(f"{base_path}.json", 'r') as f:
+        with open(f"{base_path}_raster.json", 'r') as f:
             metadata = json.load(f)
         
         if metadata['type'] not in ['Raster', 'MultiRaster']:
