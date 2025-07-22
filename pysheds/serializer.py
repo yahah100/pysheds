@@ -187,7 +187,12 @@ class PyshedsSerializer:
                 else:
                     nodata = np.float64(nodata)
             elif np.issubdtype(data_dtype, np.integer):
-                nodata = np.int64(nodata)
+                if data_dtype == np.int16:
+                    nodata = np.int16(nodata)
+                elif data_dtype == np.int32:
+                    nodata = np.int32(nodata)
+                else:
+                    nodata = np.int64(nodata)
             else:
                 raise ValueError(f"Unsupported data dtype: {data_dtype}")
         
